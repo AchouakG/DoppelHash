@@ -7,7 +7,14 @@ def create_test_dataset(source_folder, output_folder, num_originals=4):
     """Create a test dataset with known duplicates from source folder."""
     
     output_path = Path(output_folder)
-    output_path.mkdir(exist_ok=True)
+    
+    # Clear existing output folder if it exists
+    if output_path.exists():
+        print(f"\n>>> Clearing existing folder: {output_folder}")
+        shutil.rmtree(output_path)
+        print("✓ Folder cleared")
+    
+    output_path.mkdir(parents=True, exist_ok=True)
     
     source_path = Path(source_folder)
     image_extensions = {'.jpg', '.jpeg', '.png'}
@@ -89,8 +96,8 @@ def create_test_dataset(source_folder, output_folder, num_originals=4):
 
 if __name__ == "__main__":
     # Configuration
-    SOURCE_FOLDER = "../" # specify source folder
-    OUTPUT_FOLDER = "../" # specify destination folder
-    NUM_ORIGINALS = 4  # How many unique images to use
+    SOURCE_FOLDER = "./"
+    OUTPUT_FOLDER = "./"
+    NUM_ORIGINALS = 3  # How many unique images to use
     
     duplicate_map = create_test_dataset(SOURCE_FOLDER, OUTPUT_FOLDER, NUM_ORIGINALS)
