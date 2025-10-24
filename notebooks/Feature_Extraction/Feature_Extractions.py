@@ -90,7 +90,7 @@ class UnionFind:
 
 
 def find_duplicates(folder_path, algorithm, threshold):
-    """ Find duplicate images in a folder using Union-Find"""
+    """Find duplicate images in a folder using Union-Find"""
     hash_functions = {
         'phash': perceptual_hash,
     }
@@ -99,7 +99,6 @@ def find_duplicates(folder_path, algorithm, threshold):
     
     image_extensions = {'.jpg', '.jpeg', '.png'}
     
-    # Get all image files
     folder = Path(folder_path)
     if not folder.exists():
         raise FileNotFoundError(f"Folder not found: {folder_path}")
@@ -120,10 +119,15 @@ def find_duplicates(folder_path, algorithm, threshold):
     unionf = UnionFind(image_names)
     
     comparison_count = 0
+    similarity_matrix = {}
+    
     for i, img1 in enumerate(image_names):
         for img2 in image_names[i+1:]:
             comparison_count += 1
+            distance = hamming_distance(hashes[img1], hashes[img2])
             similarity = similarity_score(hashes[img1], hashes[img2])
+            
+            similarity_matrix[(img1, img2)] = {'hamming': distance, 'similarity': similarity}
             
             if similarity >= threshold:
                 unionf.union(img1, img2)
@@ -132,15 +136,32 @@ def find_duplicates(folder_path, algorithm, threshold):
     
     duplicate_groups = unionf.get_groups()
     
-    return duplicate_groups
+    group_scores = []
+    for group in duplicate_groups:
+        n = len(group)
+        if n < 2:
+            continue
+        pairwise_scores = []
+        for i in range(n):
+            for j in range(i+1, n):
+                img1, img2 = group[i], group[j]
+                pairwise_scores.append(similarity_matrix.get((img1, img2)) or similarity_matrix.get((img2, img1)))
+        avg_similarity = np.mean([s['similarity'] for s in pairwise_scores])
+        group_scores.append({'group': group, 'avg_similarity': round(avg_similarity, 2)})
+    
+    return group_scores
 
 
 def print_duplicates(duplicate_groups):
-    """Print duplicates."""
+    """print duplicates with average similarity"""
     if not duplicate_groups:
         print("No duplicates found!")
         return
     
-    print("\nDuplicates:")
-    formatted_groups = ", ".join([str(group) for group in duplicate_groups])
-    print(formatted_groups)
+    print("\nDuplicate Groups:")
+    for group_info in duplicate_groups:
+        group = group_info['group']
+        avg_sim = group_info['average_similarity']
+        print(f"Group: {group}, Average Similarity: {avg_sim:.2f}%")
+
+
