@@ -5,7 +5,7 @@
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/DoppelHash.git
+git clone https://github.com/AchouakG/DoppelHash.git
 cd DoppelHash
 ```
 
