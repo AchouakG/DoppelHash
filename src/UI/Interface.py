@@ -4,16 +4,31 @@ from PIL import Image
 from pathlib import Path
 import shutil
 import numpy as np
+import sys
+import zipfile
+import io
+import tempfile
+import time
 
-from Feature_Extraction.Feature_Extractions import find_duplicates
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+from src.Feature_Extractions import find_duplicates
 
 
 st.set_page_config(
     page_title="DoppelHash",
-    page_icon="../assets/icon.png",
+    page_icon="src/UI/assets/icon.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.markdown("""
     <style>
@@ -57,6 +72,14 @@ st.markdown("""
         background-color: #66bb6a;
         color: white;
     }
+    .tab-badge {
+        background-color: #2196F3;
+        color: white;
+        padding: 0.2rem 0.6rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -68,12 +91,12 @@ if 'temp_dir' not in st.session_state:
     st.session_state.temp_dir = None
 if 'uploader_key' not in st.session_state:
     st.session_state.uploader_key = 0
+if 'stats' not in st.session_state:
+    st.session_state.stats = {}
 
 
 def save_uploaded_files(uploaded_files):
     """Save uploaded files to a temporary directory"""
-    #todo: give choice to user store file filtered from duplicates
-    
     temp_dir = "temp_uploaded_images"
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
@@ -126,10 +149,130 @@ def calculate_space_wasted(duplicate_groups, temp_dir):
     return total_wasted
 
 
+def process_zip_folder(uploaded_zip, algorithm, threshold, sim_method, num_bands, rows_per_band):
+    """Process ZIP folder and return filtered ZIP"""
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            extract_path = temp_path / "extracted"
+            filtered_path = temp_path / "filtered"
+            extract_path.mkdir()
+            filtered_path.mkdir()
+            
+            # Extract ZIP
+            with zipfile.ZipFile(io.BytesIO(uploaded_zip.read())) as zip_ref:
+                zip_ref.extractall(extract_path)
+            
+            # Get all image files recursively (avoid duplicates)
+            image_extensions = {'.png', '.jpg', '.jpeg'}
+            image_files = []
+            seen_files = set()
+            
+            for file_path in extract_path.rglob('*'):
+                if file_path.is_file() and file_path.suffix.lower() in image_extensions:
+                    abs_path = file_path.resolve()
+                    if abs_path not in seen_files:
+                        image_files.append(file_path)
+                        seen_files.add(abs_path)
+            
+            if not image_files:
+                return None, "No images found in the ZIP file!", 0, 0, 0
+            
+            
+            
+            # Create a flat temp folder for find_duplicates
+            flat_temp = temp_path / "flat_temp"
+            flat_temp.mkdir()
+            
+            file_mapping = {}
+            for idx, img_file in enumerate(image_files):
+                # Create unique flat name
+                flat_name = f"{idx}_{img_file.name}"
+                flat_path = flat_temp / flat_name
+                shutil.copy2(img_file, flat_path)
+                file_mapping[flat_name] = img_file
+            
+            # Find duplicates in flat folder
+            result = find_duplicates(
+                str(flat_temp), 
+                algorithm, 
+                threshold,
+                sim_method=sim_method,
+                num_bands=num_bands,
+                rows_per_band=rows_per_band
+            )
+            
+            # Handle empty result (now returns 3 values)
+            if not result or result == []:
+                duplicates = []
+                num_groups = 0
+            elif isinstance(result, tuple) and len(result) >= 2:
+                duplicates = result[0]
+                num_groups = result[1]
+            else:
+                duplicates = result if isinstance(result, list) else []
+                num_groups = len(duplicates)
+            
+            files_to_remove = set()
+            if duplicates:
+                for group_data in duplicates:
+                    dup_group = group_data['group']
 
-# Sidebar
+                    original_paths = [file_mapping[flat_name] for flat_name in dup_group]
+                    
+                    files_to_remove.update(original_paths[1:])
+            
+            kept_files = 0
+            removed_files = len(files_to_remove)
+            
+            for img_file in image_files:
+                if img_file not in files_to_remove:
+                    relative_path = img_file.relative_to(extract_path)
+                    dest_file = filtered_path / relative_path
+                    dest_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(img_file, dest_file)
+                    kept_files += 1
+            
+            # Create ZIP of filtered folder
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for file_path in filtered_path.rglob('*'):
+                    if file_path.is_file():
+                        arcname = file_path.relative_to(filtered_path)
+                        zip_file.write(file_path, arcname)
+            
+            zip_buffer.seek(0)
+            return zip_buffer, None, len(image_files), removed_files, kept_files
+            
+    except Exception as e:
+        return None, f"Error processing folder: {str(e)}", 0, 0, 0
+
+
 with st.sidebar:
     st.header("⚙️ Settings")
+    
+    st.subheader("🔍 Detection Method")
+    
+    sim_method = st.radio(
+        "Choose method:",
+        options=['Bruteforce', 'lsh'],
+        format_func=lambda x: {
+            'Bruteforce': 'Bruteforce',
+            'lsh': 'LSH'
+        }[x],
+    )
+    
+    # show only if LSH selected
+    num_bands = 8
+    rows_per_band = 8
+    
+    if sim_method == 'lsh':
+        with st.expander("⚙️ LSH Settings", expanded=False):
+            num_bands = st.slider("Bands", 4, 16, 8)
+            rows_per_band = st.slider("Rows/Band", 4, 16, 8)
+            st.caption(f"Hash size: {num_bands * rows_per_band} bits")
+    
+    st.markdown("---")
     
     algorithm = st.selectbox(
         "Hash Algorithm",
@@ -146,9 +289,10 @@ with st.sidebar:
     
     st.markdown("---")
     
-    if st.session_state.processed and st.button(" Reset"):
+    if st.session_state.processed and st.button("Reset"):
         st.session_state.duplicates = []
         st.session_state.processed = False
+        st.session_state.stats = {}
         st.session_state.uploader_key += 1
         if st.session_state.temp_dir and os.path.exists(st.session_state.temp_dir):
             shutil.rmtree(st.session_state.temp_dir)
@@ -157,138 +301,230 @@ with st.sidebar:
 
 col1, col2 = st.columns([1, 10])
 
-
 with col1:
-    st.image("../assets/icon.png", width=80)
+    st.image("src/UI/assets/icon2.png", width=80)
 with col2:
-    st.markdown("<h1 style='margin-top: 0;, margin-lef: 0;'>DoppelHash</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-top: 0;, margin-left: 0;'>DoppelHash</h1>", unsafe_allow_html=True)
 
 st.markdown("### Find and manage duplicate images with ease!")
 
+tab1, tab2 = st.tabs(["🔍 Find Duplicates", "📁 Filter Folder"])
 
+with tab1:
+    col1, col2 = st.columns([2, 1])
 
+    with col1:
+        st.subheader("📁 Upload Images")
+        uploaded_files = st.file_uploader(
+            "Choose folder",
+            type=['jpg', 'jpeg', 'png'],
+            accept_multiple_files="directory",
+            key=f"file_uploader_{st.session_state.uploader_key}"
+        )
 
-col1, col2 = st.columns([2, 1])
+    with col2:
+        st.subheader("Actions")
+        if uploaded_files:
+            st.success(f"✅ {len(uploaded_files)} files uploaded")
+            
+            if st.button("Find Duplicates", type="primary", key="find_btn"):
+                try:
+                    temp_dir = save_uploaded_files(uploaded_files)
+                    st.session_state.temp_dir = temp_dir
+                    
+                    with st.spinner("Analyzing images..."):
+                        result = find_duplicates(
+                            temp_dir,
+                            algorithm,
+                            threshold,
+                            sim_method=sim_method,
+                            num_bands=num_bands,
+                            rows_per_band=rows_per_band
+                        )
+                        
+                        if not result or result == []:
+                            duplicates = []
+                            num_groups = 0
+                            stats = {}
+                        elif isinstance(result, tuple) and len(result) == 3:
+                            duplicates, num_groups, stats = result
+                        elif isinstance(result, tuple) and len(result) == 2:
+                            duplicates, num_groups = result
+                            stats = {}
+                        else:
+                            duplicates = result if isinstance(result, list) else []
+                            num_groups = len(duplicates)
+                            stats = {}
+                        
+                        st.session_state.duplicates = duplicates
+                        st.session_state.total_files = len(uploaded_files)
+                        st.session_state.stats = stats
+                        st.session_state.processed = True
+                    
+                    st.success("✨ Processing complete!")
+                    
+                    # Display performance stats if available
+                    with col1:
+                        if stats:
+                            st.markdown("---")
+                            st.subheader("⚡ Performance")
+                            
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                st.metric("Method", stats['method'])
+                            with col2:
+                                st.metric("Total Time", f"{stats['total_time']}s")
+                            with col3:
+                                st.metric("Comparisons", f"{stats['comparisons_made']:,}")
+                            with col4:
+                                if stats['method'] == 'lsh':
+                                    st.metric("Reduction", f"{stats['comparison_reduction']}%",
+                                            delta=f"-{stats['comparison_reduction']}%")
+                                else:
+                                    st.metric("Max Possible", f"{stats['max_possible_comparisons']:,}")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+        else:
+            st.info("Upload images to get started")
 
-with col1:
-    st.subheader("📁 Upload Images")
-    uploaded_files = st.file_uploader(
-        "Choose folder",
-        type=['jpg', 'jpeg', 'png'],
-        accept_multiple_files="directory",
-        key=f"file_uploader_{st.session_state.uploader_key}"
-    )
-
-with col2:
-    st.subheader("🚀 Actions")
-    if uploaded_files:
-        st.success(f"✅ {len(uploaded_files)} files uploaded")
+    if st.session_state.processed:
+        st.markdown("---")
+        st.header("📊 Results")
         
-        if st.button("Find Duplicates", type="primary"):
-            try:
-                temp_dir = save_uploaded_files(uploaded_files)
-                st.session_state.temp_dir = temp_dir
+        num_duplicate_groups = len(st.session_state.duplicates)
+        total_duplicates = sum(len(group['group']) for group in st.session_state.duplicates)
+        
+        if num_duplicate_groups > 0:
+            avg_similarity = np.mean([group['avg_similarity'] for group in st.session_state.duplicates])
+            space_wasted = calculate_space_wasted(st.session_state.duplicates, st.session_state.temp_dir)
+        else:
+            avg_similarity = 0
+            space_wasted = 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Images", st.session_state.total_files)
+        with col2:
+            st.metric("Duplicate Groups", num_duplicate_groups)
+        with col3:
+            st.metric("Total Duplicates", total_duplicates)
+        with col4:
+            st.metric("Space Wasted", f"{space_wasted / 1024 / 1024:.2f} MB")
+        
+        if num_duplicate_groups > 0:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Avg Similarity", f"{avg_similarity:.1f}%")
+            with col2:
+                unique_images = st.session_state.total_files - (total_duplicates - num_duplicate_groups)
+                st.metric("Unique Images", unique_images)
+            with col3:
+                reduction = (total_duplicates - num_duplicate_groups) / st.session_state.total_files * 100
+                st.metric("Potential Reduction", f"{reduction:.1f}%")
+        
+        if num_duplicate_groups > 0:
+            st.markdown("---")
+            st.subheader("🔎 Duplicate Groups")
+            
+            # sort groups by similarity desc
+            sorted_groups = sorted(st.session_state.duplicates, key=lambda x: x['avg_similarity'], reverse=True)
+            
+            for idx, group_data in enumerate(sorted_groups, 1):
+                group = group_data['group']
+                avg_sim = group_data['avg_similarity']
+                badge_class = get_similarity_badge_class(avg_sim)
                 
-                with st.spinner("Analyzing images..."):
-                    duplicates, num_groups = find_duplicates(temp_dir, algorithm, threshold)
-                    st.session_state.duplicates = duplicates
-                    st.session_state.total_files = len(uploaded_files)
-                    st.session_state.processed = True
+                header_html = f"""
+                <div style='display: flex; align-items: center; gap: 10px;'>
+                    <span style='font-size: 1.1rem; font-weight: bold;'>📂 Group {idx}</span>
+                    <span class='similarity-badge {badge_class}'>{avg_sim}% Similar</span>
+                    <span style='color: #666;'>({len(group)} images)</span>
+                </div>
+                """
                 
-                st.success("✨ Processing complete!")
-                
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
-    else:
-        st.info("Upload images to get started")
+                with st.expander(f"Group {idx} - {avg_sim}% similarity - {len(group)} images", expanded=(idx == 1)):
+                    st.markdown(header_html, unsafe_allow_html=True)
+                    st.markdown("")
+                    
+                    cols = st.columns(min(len(group), 4))
+                    
+                    for i, img_name in enumerate(group):
+                        col_idx = i % 4
+                        with cols[col_idx]:
+                            try:
+                                img_path = os.path.join(st.session_state.temp_dir, img_name)
+                                img = Image.open(img_path)
+                                st.image(img, caption=img_name, use_container_width=True)
+                                
+                                file_size = os.path.getsize(img_path) / 1024
+                                st.caption(f"📏 {file_size:.1f} KB")
+                                st.caption(f"📐 {img.size[0]}x{img.size[1]}")
+                            except Exception as e:
+                                st.error(f"Error loading {img_name}: {e}")
+        else:
+            st.success("No duplicates found! All images are unique.")
 
-# Display results
-if st.session_state.processed:
-    st.markdown("---")
-    st.header("📊 Results")
+with tab2:
+    st.subheader("📁 Filter Folder from Duplicates")
     
-
-    num_duplicate_groups = len(st.session_state.duplicates)
-    total_duplicates = sum(len(group['group']) for group in st.session_state.duplicates)
-    
-    if num_duplicate_groups > 0:
-        avg_similarity = np.mean([group['avg_similarity'] for group in st.session_state.duplicates])
-        space_wasted = calculate_space_wasted(st.session_state.duplicates, st.session_state.temp_dir)
-    else:
-        avg_similarity = 0
-        space_wasted = 0
-    
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.metric("Total Images", st.session_state.total_files)
-    with col2:
-        st.metric("Duplicate Groups", num_duplicate_groups)
-    with col3:
-        st.metric("Total Duplicates", total_duplicates)
-    with col4:
-        st.metric("Space Wasted", f"{space_wasted / 1024 / 1024:.2f} MB")
+        uploaded_zip = st.file_uploader(
+            "Upload ZIP file",
+            type=['zip'],
+            key="zip_uploader",
+            help="Upload a ZIP file containing your image folder"
+        )
     
-    if num_duplicate_groups > 0:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Avg Similarity", f"{avg_similarity:.1f}%")
+    
+    if uploaded_zip:
         with col2:
-            unique_images = st.session_state.total_files - (total_duplicates - num_duplicate_groups)
-            st.metric("Unique Images", unique_images)
-        with col3:
-            reduction = (total_duplicates - num_duplicate_groups) / st.session_state.total_files * 100
-            st.metric("Potential Reduction", f"{reduction:.1f}%")
-    
-    if num_duplicate_groups > 0:
-        st.markdown("---")
-        st.subheader("Duplicate Groups")
+            st.success(f"✅ ZIP file uploaded: {uploaded_zip.name}")
         
-        # sort groups by similarity desc
-        sorted_groups = sorted(st.session_state.duplicates, key=lambda x: x['avg_similarity'], reverse=True)
-        
-        for idx, group_data in enumerate(sorted_groups, 1):
-            group = group_data['group']
-            avg_sim = group_data['avg_similarity']
-            badge_class = get_similarity_badge_class(avg_sim)
-            
-            header_html = f"""
-            <div style='display: flex; align-items: center; gap: 10px;'>
-                <span style='font-size: 1.1rem; font-weight: bold;'>📂 Group {idx}</span>
-                <span class='similarity-badge {badge_class}'>{avg_sim}% Similar</span>
-                <span style='color: #666;'>({len(group)} images)</span>
-            </div>
-            """
-            
-            with st.expander(f"Group {idx} - {avg_sim}% similarity - {len(group)} images", expanded=(idx == 1)):
-                st.markdown(header_html, unsafe_allow_html=True)
-                st.markdown("")
+        if st.button("Filter Folder", type="primary", key="filter_btn"):
+            with st.spinner("🔄 Processing folder... This may take a moment."):
+                zip_buffer, error, total_images, removed, kept = process_zip_folder(
+                    uploaded_zip, algorithm, threshold, sim_method, num_bands, rows_per_band
+                )
                 
-                # images in grid
-                cols = st.columns(min(len(group), 4))
-                
-                for i, img_name in enumerate(group):
-                    col_idx = i % 4
-                    with cols[col_idx]:
-                        try:
-                            img_path = os.path.join(st.session_state.temp_dir, img_name)
-                            img = Image.open(img_path)
-                            st.image(img, caption=img_name, use_container_width=True)
-                            
-                            file_size = os.path.getsize(img_path) / 1024
-                            st.caption(f"📏 {file_size:.1f} KB")
-                            st.caption(f"📐 {img.size[0]}x{img.size[1]}")
-                        except Exception as e:
-                            st.error(f"Error loading {img_name}: {e}")
+                if error:
+                    st.error(f"❌ {error}")
+                else:
+                    with col2:
+                        st.success("✨ Processing complete!")
+                    st.markdown("---")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("📸 Original Images", total_images)
+                    with col2:
+                        st.metric("🗑️ Duplicates Removed", removed)
+                    with col3:
+                        st.metric("✅ Images Kept", kept)
+                    
+                    if removed > 0:
+                        reduction_pct = (removed / total_images) * 100
+                        st.info(f"💾 Space saved: {reduction_pct:.1f}% reduction in image count")
+                    
+                    st.download_button(
+                        label="📥 Download Filtered Folder",
+                        data=zip_buffer,
+                        file_name=f"filtered_{uploaded_zip.name}",
+                        mime="application/zip",
+                        type="primary",
+                        use_container_width=True
+                    )
     else:
-        st.success("🎉 No duplicates found! All your images are unique.")
+        st.info("📤 Upload a ZIP file to get started")
 
-# Footer
+
 st.markdown("---")
 st.markdown("""
     <div style='text-align: center; color: #666; padding: 3rem;'>
-        <p>Achouak Guennoun & Hajar Makhlouf | DoppelHash v1.0</p>
+        <p> DoppelHash v1.0</p>
     </div>
     """, unsafe_allow_html=True)
