@@ -28,10 +28,10 @@ hide_streamlit_style = """
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {display: none;}
+    .stAppToolbar {display: none;}
     </style>
 """
 
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.markdown("""
