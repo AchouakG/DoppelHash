@@ -29,6 +29,9 @@ hide_streamlit_style = """
     header {visibility: hidden;}
     .stDeployButton {display: none;}
     .stAppToolbar {display: none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="manage-app-button"] {display: none;}
+    .viewerBadge_container__1QSob {display: none;}
     </style>
 """
 
