@@ -163,7 +163,6 @@ def process_zip_folder(uploaded_zip, algorithm, threshold, sim_method, num_bands
             with zipfile.ZipFile(io.BytesIO(uploaded_zip.read())) as zip_ref:
                 zip_ref.extractall(extract_path)
             
-            # Get all image files recursively (avoid duplicates)
             image_extensions = {'.png', '.jpg', '.jpeg'}
             image_files = []
             seen_files = set()
@@ -202,7 +201,6 @@ def process_zip_folder(uploaded_zip, algorithm, threshold, sim_method, num_bands
                 rows_per_band=rows_per_band
             )
             
-            # Handle empty result (now returns 3 values)
             if not result or result == []:
                 duplicates = []
                 num_groups = 0
@@ -251,7 +249,7 @@ def process_zip_folder(uploaded_zip, algorithm, threshold, sim_method, num_bands
 with st.sidebar:
     st.header("⚙️ Settings")
     
-    st.subheader("🔍 Detection Method")
+    st.subheader(" Detection Method")
     
     sim_method = st.radio(
         "Choose method:",
@@ -478,7 +476,6 @@ with tab2:
             "Upload ZIP file",
             type=['zip'],
             key="zip_uploader",
-            help="Upload a ZIP file containing your image folder"
         )
     
     
