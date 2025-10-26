@@ -1,9 +1,30 @@
 # DoppelHash
 
-| Activate venv
 
-`venv\Scripts\activate`
+## Installation
 
-| install reqs
+### 1. Clone the repository
+```bash
+git clone https://github.com/yourusername/DoppelHash.git
+cd DoppelHash
+```
 
-`pip install -r requirements.txt`
+### 2. Create and activate virtual environment
+
+**Linux/WSL/macOS:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+
+
+### 4. Run the application
+```bash
+streamlit run src/UI/Interface.py
+```
