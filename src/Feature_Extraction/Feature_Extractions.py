@@ -149,7 +149,7 @@ def find_duplicates(folder_path, algorithm, threshold):
         avg_similarity = np.mean([s['similarity'] for s in pairwise_scores])
         group_scores.append({'group': group, 'avg_similarity': round(avg_similarity, 2)})
     
-    return group_scores
+    return group_scores, len(group_scores)
 
 
 def print_duplicates(duplicate_groups):
