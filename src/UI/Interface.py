@@ -17,7 +17,7 @@ from src.Feature_Extractions import find_duplicates
 
 st.set_page_config(
     page_title="DoppelHash",
-    page_icon="src/UI/assets/icon.png",
+    page_icon="src/UI/assets/icon.svg",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -307,7 +307,7 @@ with st.sidebar:
 col1, col2 = st.columns([1, 10])
 
 with col1:
-    st.image("src/UI/assets/icon.png", width=80)
+    st.image("src/UI/assets/icon.svg", width=80)
 with col2:
     st.markdown("<h1 style='margin-top: 0;, margin-left: 0;'>DoppelHash</h1>", unsafe_allow_html=True)
 
