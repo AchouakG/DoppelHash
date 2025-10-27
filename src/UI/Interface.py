@@ -267,17 +267,20 @@ with st.sidebar:
         }[x],
     )
     
-    # show only if LSH selected
-    num_bands = 8
-    rows_per_band = 8
-    
     if sim_method == 'lsh':
         with st.expander("⚙️ LSH Settings", expanded=False):
-            num_bands = st.slider("Bands", 4, 16, 8)
-            rows_per_band = st.slider("Rows/Band", 4, 16, 8)
-            st.caption(f"Hash size: {num_bands * rows_per_band} bits")
-    
-    st.markdown("---")
+            valid_bands = [1, 2, 4, 8, 16, 32, 64]
+            
+            num_bands = st.select_slider(
+                "Number of Bands",
+                options=valid_bands,
+                value=8
+            )
+            
+            rows_per_band = 64 // num_bands
+            
+            st.caption(f"Hash size: {num_bands * rows_per_band} bits ({num_bands} bands × {rows_per_band} rows/band)")
+
     
     algorithm = st.selectbox(
         "Hash Algorithm",
