@@ -266,7 +266,8 @@ with st.sidebar:
             'lsh': 'LSH'
         }[x],
     )
-    
+    num_bands=8
+    rows_per_band=8
     if sim_method == 'lsh':
         with st.expander("⚙️ LSH Settings", expanded=False):
             valid_bands = [1, 2, 4, 8, 16, 32, 64]
@@ -377,20 +378,13 @@ with tab1:
                             st.markdown("---")
                             st.subheader("⚡ Performance")
                             
-                            col1, col2, col3, col4 = st.columns(4)
-                            with col1:
-                                st.metric("Method", stats['method'])
-                            with col2:
+                            perf_col1, perf_col2, perf_col3 = st.columns(3)
+                            
+                            with perf_col1:
                                 st.metric("Total Time", f"{stats['total_time']}s")
-                            with col3:
-                                st.metric("Comparisons", f"{stats['comparisons_made']:,}")
-                            with col4:
-                                if stats['method'] == 'lsh':
-                                    st.metric("Reduction", f"{stats['comparison_reduction']}%",
-                                            delta=f"-{stats['comparison_reduction']}%")
-                                else:
-                                    st.metric("Max Possible", f"{stats['max_possible_comparisons']:,}")
-                        
+                            
+                            with perf_col2:
+                                st.metric("Comparisons Made", f"{stats['comparisons_made']:,}")
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
                     import traceback
@@ -422,6 +416,7 @@ with tab1:
             st.metric("Total Duplicates", total_duplicates)
         with col4:
             st.metric("Space Wasted", f"{space_wasted / 1024 / 1024:.2f} MB")
+
         
         if num_duplicate_groups > 0:
             col1, col2, col3 = st.columns(3)
