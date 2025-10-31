@@ -378,13 +378,22 @@ with tab1:
                             st.markdown("---")
                             st.subheader("⚡ Performance")
                             
-                            perf_col1, perf_col2, perf_col3 = st.columns(3)
-                            
-                            with perf_col1:
-                                st.metric("Total Time", f"{stats['total_time']}s")
-                            
-                            with perf_col2:
-                                st.metric("Comparisons Made", f"{stats['comparisons_made']:,}")
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                st.metric("Method", stats['method'])
+                            with col2:
+                                if stats['method'] == 'lsh':
+                                    time_val = stats['comparison_time_lsh']
+                                else:
+                                    time_val = stats['comparison_time_brute']
+                                if time_val < 0.01:
+                                    st.metric("Total Time", f"{time_val*1000:.2f}ms")
+                                else:
+                                    st.metric("Total Time", f"{time_val:.4f}s")
+                                    
+                            with col3:
+                                st.metric("Comparisons", f"{stats['comparisons_made']:,}")
+                        
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
                     import traceback
