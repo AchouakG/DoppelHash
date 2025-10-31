@@ -55,8 +55,7 @@ def find_duplicates(folder_path, algorithm, threshold, sim_method='Bruteforce', 
         print(f"No images found in {folder_path}")
         return [], 0, {}
     
-    print(f"Hashing {len(image_files)} images...")
-    start_time = time.time()
+    
     
     hashes = {}
     for img_path in image_files:
@@ -64,18 +63,18 @@ def find_duplicates(folder_path, algorithm, threshold, sim_method='Bruteforce', 
         if img_hash is not None:
             hashes[img_path.name] = img_hash
     
-    hash_time = time.time() - start_time
-    print(f"Hashing completed in {hash_time:.2f}s")
-    
     image_names = list(hashes.keys())
     unionf = UnionFind(image_names)
     
     comparison_count = 0
     similarity_matrix = {}
     
-    start_time = time.time()
+    comparison_time_brute = 0
+    comparison_time_lsh = 0
     
     if sim_method == 'Bruteforce':
+        
+        start_time_brute = time.time()
         
         for i, img1 in enumerate(image_names):
             
@@ -91,8 +90,10 @@ def find_duplicates(folder_path, algorithm, threshold, sim_method='Bruteforce', 
                 
                 if similarity >= threshold:
                     unionf.union(img1, img2)
+        comparison_time_brute = time.time() - start_time_brute
     
     elif sim_method == 'lsh':
+        start_time_lsh = time.time()
         
         lsh = LSH(num_bands=num_bands, rows_per_band=rows_per_band)
         
@@ -121,13 +122,13 @@ def find_duplicates(folder_path, algorithm, threshold, sim_method='Bruteforce', 
                 
                 if similarity >= threshold:
                     unionf.union(img1, img2)
-        
+        comparison_time_lsh = time.time() - start_time_lsh
+
     
     else:
-        raise ValueError(f"Invalid sim_method: {sim_method}. Use 'bruteforce' or 'lsh'")
+        raise ValueError(f"Invalid sim_method: {sim_method}. Use 'Bruteforce' or 'lsh'")
     
-    comparison_time = time.time() - start_time
-
+    
     
     duplicate_groups = unionf.get_groups()
     
@@ -159,9 +160,8 @@ def find_duplicates(folder_path, algorithm, threshold, sim_method='Bruteforce', 
     stats = {
         'method': sim_method,
         'total_images': len(image_names),
-        'hash_time': round(hash_time, 2),
-        'comparison_time': round(comparison_time, 2),
-        'total_time': round(hash_time + comparison_time, 2),
+        'comparison_time_brute': round(comparison_time_brute, 4),
+        'comparison_time_lsh': round(comparison_time_lsh, 4),
         'comparisons_made': comparison_count,
         'max_possible_comparisons': max_possible_comparisons,
         'comparison_reduction': round(reduction_pct, 1),

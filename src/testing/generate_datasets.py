@@ -96,8 +96,8 @@ def create_test_dataset(source_folder, output_folder, num_originals=4):
 
 if __name__ == "__main__":
     # Configuration
-    SOURCE_FOLDER = "./"
-    OUTPUT_FOLDER = "./"
+    SOURCE_FOLDER = "../../datasets/Airbnb_data/Test_data/outdoor"
+    OUTPUT_FOLDER = "../../datasets/Airbnb_data/Test_data/myData"
     NUM_ORIGINALS = 3  # How many unique images to use
     
     duplicate_map = create_test_dataset(SOURCE_FOLDER, OUTPUT_FOLDER, NUM_ORIGINALS)
