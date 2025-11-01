@@ -15,6 +15,29 @@ sys.path.insert(0, str(project_root))
 from src.Feature_Extractions import find_duplicates
 
 
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    footer:after {
+        content:'goodbye';
+        visibility: visible;
+        display: block;
+        position: relative;
+        #background-color: red;
+        padding: 5px;
+        top: 2px;
+    }
+    .css-18ni7ap.e8zbici2 {display: none;}
+    [data-testid="stHeader"] div:nth-child(2) {display: none !important;}
+    .viewerBadge_container__1QSob {display: none;}
+    .stDeployButton {display: hidden;}
+    [data-testid="manage-app-button"] {display: none;}
+    </style>
+"""
+
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 st.set_page_config(
     page_title="DoppelHash",
     page_icon="src/UI/assets/icon.svg",
@@ -527,23 +550,3 @@ st.markdown("""
 
 
 
-hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    footer:after {
-        content:'goodbye';
-        visibility: visible;
-        display: block;
-        position: relative;
-        #background-color: red;
-        padding: 5px;
-        top: 2px;
-    }
-    .viewerBadge_container__1QSob {display: none;}
-    .stDeployButton {display: hidden;}
-    [data-testid="manage-app-button"] {display: none;}
-    </style>
-"""
-
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
