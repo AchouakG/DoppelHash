@@ -382,16 +382,14 @@ with tab1:
                             with col1:
                                 st.metric("Method", stats['method'])
                             with col2:
-                                if st.session_state.stats:
-                                    stats = st.session_state.stats
-                                    time_val = stats.get(
+                                time_val = stats.get(
                                         'comparison_time_lsh' if stats['method'] == 'lsh' else 'comparison_time_brute',
                                         0
                                     )
-                                    if time_val < 0.01:
-                                        st.metric("Total Time", f"{time_val*1000:.2f}ms")
-                                    else:
-                                        st.metric("Total Time", f"{time_val:.4f}s")
+                                if time_val < 0.01:
+                                    st.metric("Total Time", f"{time_val*1000:.2f}ms")
+                                else:
+                                    st.metric("Total Time", f"{time_val:.4f}s")
                                     
                                 
                                     
