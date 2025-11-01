@@ -1,11 +1,4 @@
 import streamlit as st
-
-# Add this at the TOP of your Streamlit app temporarily
-if st.button("🔄 Reset Session (simulate deployment)"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
-
 import os
 from PIL import Image
 from pathlib import Path
@@ -537,11 +530,7 @@ st.markdown("""
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
-    footer {
-        
-        visibility: hidden;
-        
-        }
+    footer {visibility: hidden;}
     footer:after {
         content:'goodbye';
         visibility: visible;
