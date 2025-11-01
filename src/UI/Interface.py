@@ -99,7 +99,7 @@ if 'temp_dir' not in st.session_state:
 if 'uploader_key' not in st.session_state:
     st.session_state.uploader_key = 0
 if 'stats' not in st.session_state:
-    st.session_state.stats = {}
+    st.session_state.stats = None
 
 
 def save_uploaded_files(uploaded_files):
@@ -382,14 +382,18 @@ with tab1:
                             with col1:
                                 st.metric("Method", stats['method'])
                             with col2:
-                                if stats:
+                                if st.session_state.stats:
+                                    stats = st.session_state.stats
                                     time_val = stats.get(
-                                    'comparison_time_lsh' if stats['method'] == 'lsh'
-                                        else 'comparison_time_brute', 0)
-                                if time_val < 0.01:
-                                    st.metric("Total Time", f"{time_val*1000:.2f}ms")
-                                else:
-                                    st.metric("Total Time", f"{time_val:.4f}s")
+                                        'comparison_time_lsh' if stats['method'] == 'lsh' else 'comparison_time_brute',
+                                        0
+                                    )
+                                    if time_val < 0.01:
+                                        st.metric("Total Time", f"{time_val*1000:.2f}ms")
+                                    else:
+                                        st.metric("Total Time", f"{time_val:.4f}s")
+                                    
+                                
                                     
                             with col3:
                                 st.metric("Comparisons", f"{stats['comparisons_made']:,}")
