@@ -15,6 +15,29 @@ sys.path.insert(0, str(project_root))
 from src.Feature_Extractions import find_duplicates
 
 
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    footer:after {
+        content:'goodbye';
+        visibility: visible;
+        display: block;
+        position: relative;
+        #background-color: red;
+        padding: 5px;
+        top: 2px;
+    }
+    .css-18ni7ap.e8zbici2 {display: none;}
+    [data-testid="stHeader"] div:nth-child(2) {display: none !important;}
+    .viewerBadge_container__1QSob {display: none;}
+    .stDeployButton {display: hidden;}
+    [data-testid="manage-app-button"] {display: none;}
+    </style>
+"""
+
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 st.set_page_config(
     page_title="DoppelHash",
     page_icon="src/UI/assets/icon.svg",
@@ -22,20 +45,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display: none;}
-    .stAppToolbar {display: none;}
-    [data-testid="stToolbar"] {display: none;}
-    [data-testid="manage-app-button"] {display: none;}
-    .viewerBadge_container__1QSob {display: none;}
-    </style>
-"""
-
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.markdown("""
     <style>
@@ -383,16 +392,13 @@ with tab1:
                                 st.metric("Method", stats['method'])
                             with col2:
                                 time_val = stats.get(
-                                        'comparison_time_lsh' if stats['method'] == 'lsh' else 'comparison_time_brute',
-                                        0
-                                    )
+                                    'comparison_time_lsh' if stats['method'] == 'lsh' else 'comparison_time_brute',
+                                    0
+                                )
                                 if time_val < 0.01:
                                     st.metric("Total Time", f"{time_val*1000:.2f}ms")
                                 else:
                                     st.metric("Total Time", f"{time_val:.4f}s")
-                                    
-                                
-                                    
                             with col3:
                                 st.metric("Comparisons", f"{stats['comparisons_made']:,}")
                         
@@ -541,3 +547,6 @@ st.markdown("""
         <p> DoppelHash v1.0</p>
     </div>
     """, unsafe_allow_html=True)
+
+
+
